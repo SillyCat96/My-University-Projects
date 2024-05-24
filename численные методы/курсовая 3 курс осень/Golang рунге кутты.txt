@@ -1,0 +1,134 @@
+package main
+
+import (
+	"fmt"
+	"math"
+)
+
+type f struct {
+	parameter [][]float64
+}
+
+func (ftype f) f1(x, y, z float64) float64 {
+	return x * (ftype.parameter[0][0] + ftype.parameter[0][1]*x + ftype.parameter[0][2]*y + ftype.parameter[0][3]*z)
+}
+func (ftype f) f2(x, y, z float64) float64 {
+	return y * (ftype.parameter[1][0] + ftype.parameter[1][1]*x + ftype.parameter[1][2]*y + ftype.parameter[1][3]*z)
+}
+func (ftype f) f3(x, y, z float64) float64 {
+	return z * (ftype.parameter[2][0] + ftype.parameter[2][1]*x + ftype.parameter[2][2]*y + ftype.parameter[2][3]*z)
+}
+func NewF(parameters [][]float64) *f {
+	p := new(f)
+	p.parameter = parameters
+	return p
+}
+func Runge_Kutta(parameter [][]float64, x, y, z, h float64, n int) (toReturn [][]float64, j int) {
+	j = 0
+	temp := make([]float64, 3)
+	functions := NewF(parameter)
+	// Задаем начальные значения
+	// Выполняем итерации метода Рунге-Кутта
+	for i := 0; i < n; i++ {
+		j++
+		k1x := h * functions.f1(x, y, z)
+		k1y := h * functions.f2(x, y, z)
+		k1z := h * functions.f3(x, y, z)
+
+		k2x := h * functions.f1(x+0.5*k1x, y+0.5*k1y, z+0.5*k1z)
+		k2y := h * functions.f2(x+0.5*k1x, y+0.5*k1y, z+0.5*k1z)
+		k2z := h * functions.f3(x+0.5*k1x, y+0.5*k1y, z+0.5*k1z)
+
+		k3x := h * functions.f1(x+0.5*k2x, y+0.5*k2y, z+0.5*k2z)
+		k3y := h * functions.f2(x+0.5*k2x, y+0.5*k2y, z+0.5*k2z)
+		k3z := h * functions.f3(x+0.5*k2x, y+0.5*k2y, z+0.5*k2z)
+
+		k4x := h * functions.f1(x+k3x, y+k3y, z+k3z)
+		k4y := h * functions.f2(x+k3x, y+k3y, z+k3z)
+		k4z := h * functions.f3(x+k3x, y+k3y, z+k3z)
+
+		x += (k1x + 2*k2x + 2*k3x + k4x) / 6
+		y += (k1y + 2*k2y + 2*k3y + k4y) / 6
+		z += (k1z + 2*k2z + 2*k3z + k4z) / 6
+		if x == math.Inf(1) || y == math.Inf(1) || z == math.Inf(1) || x == math.Inf(-1) || y == math.Inf(-1) || z == math.Inf(-1) {
+			break
+		}
+		if math.IsNaN(x) || math.IsNaN(y) || math.IsNaN(z) {
+			break
+		}
+		if x > 1000 || y > 1000 || z > 1000 || x < (-1000) || y < (-1000) || z < (-1000) {
+			break
+		}
+		temp[0] = x
+		temp[1] = y
+		temp[2] = z
+
+		toReturn = append(toReturn, temp)
+		// Выводим результаты
+		//fmt.Printf("x = %.3f, y = %.3f, z = %.3f\n", x, y, z)
+	}
+	return toReturn, j
+}
+func print2D(arr [][]float64) {
+	if len(arr) > 5 {
+		for i := 0; i < 5; i++ {
+			fmt.Println(arr[len(arr)-1-i])
+		}
+	} else {
+		for i := len(arr) - 1; i > 0; i-- {
+			fmt.Println(i)
+		}
+	}
+
+}
+func main() {
+	originalX := []float64{0.0783, 0.5043, 0.6973, 0.8213, 0.8461, 0.8767, 0.9097, 0.9788}
+	originalY := []float64{0.2228, 0.0690, 0.0245, 0.0328, 0.0530, 0.0175, 0.0335, 0.0097}
+	originalZ := []float64{0.6989, 0.4266, 0.2782, 0.1458, 0.1008, 0.1058, 0.0568, 0.0115}
+	IntegralExel := [][]float64{{0.3125, -0.6875, 8.75, 0.75}, {-1, 5.75, 5.75, -2}, {0.3125, 0.3125, 1, -0.25}} //изменил
+
+	LogIntegralExel := [][]float64{{8, -7, 4, -5}, {4, -7, -7, -4}, {1.75, 0.125, 4.375, -3.375}}                                                                                     
+	IntegralGolang := [][]float64{{-3860.3433, 3859.9482, 3876.9512, 3860.7562}, {2477.0672, -2477.1854, -2477.1854, -2479.7220}, {4247.3360, -4247.9569, -4247.9569, -4247.9569}}    
+	LogIntegralGolang := [][]float64{{-3224.9875, 3224.6937, 3238.1556, 3225.2960}, {7478.0381, -7478.3450, -7478.3450, -7479.2779}, {8416.7136, -8417.7121, -8419.0200, -8417.7121}} 
+	IntegralMatchCade := [][]float64{{-3860, 3859.14, 3876, 3860}, {2477, -2477, -2473, -2479}, {4247, -4247, -4246, -4248}}                                                          
+	LogIntegralMatchCade := [][]float64{{-3224.987, 3224.693, 3238.155, 3225.295}, {7478.037, -7478.344, -7483.708, -7479.277}, {8416.713, -8417.712, -8419.02, -8417.16}}           
+	LogIntegralC := [][]float64{{-3009.71, 3009.23, 3025.72, 3010.31}, {-3382.42, 3382.94, 3385.5, 3379.83}, {3716.91, -3717.47, -3715.9, -3718.01}}                                  
+
+	IntegralExelArr, i0 := Runge_Kutta(IntegralExel, originalX[0], originalY[0], originalZ[0], 0.1, 10)
+	LogIntegralExelArr, i1 := Runge_Kutta(LogIntegralExel, originalX[0], originalY[0], originalZ[0], 0.1, 100)
+	IntegralGolangArr, i2 := Runge_Kutta(IntegralGolang, originalX[0], originalY[0], originalZ[0], 0.00007, 100000)
+	LogIntegralGolangArr, i3 := Runge_Kutta(LogIntegralGolang, originalX[0], originalY[0], originalZ[0], 0.00019, 100)
+	IntegralMatchCadeArr, i4 := Runge_Kutta(IntegralMatchCade, originalX[0], originalY[0], originalZ[0], 0.00014, 100)
+	LogIntegralMatchCadeArr, i5 := Runge_Kutta(LogIntegralMatchCade, originalX[0], originalY[0], originalZ[0], 0.0000034, 100000)
+	LogIntegralCArr, i6 := Runge_Kutta(LogIntegralC, originalX[0], originalY[0], originalZ[0], 0.000053, 100000)
+
+	fmt.Println("-----------------------------")
+	fmt.Println("Integral exel")
+	print2D(IntegralExelArr)
+	fmt.Println(i0)
+	fmt.Println("-----------------------------")
+	fmt.Println("Log Integral Exel")
+	print2D(LogIntegralExelArr)
+	fmt.Println(i1)
+	fmt.Println("-----------------------------")
+	fmt.Println("Integral Golang")
+	print2D(IntegralGolangArr)
+	fmt.Println(i2)
+	fmt.Println("-----------------------------")
+	fmt.Println("Integral MatchCade")
+	print2D(IntegralMatchCadeArr)
+	fmt.Println(i3)
+	fmt.Println("-----------------------------")
+	fmt.Println("Log Integral MatchCade ")
+	print2D(LogIntegralMatchCadeArr)
+	fmt.Println(i4)
+	fmt.Println("-----------------------------")
+	fmt.Println("Log Integral C++")
+	print2D(LogIntegralCArr)
+	fmt.Println(i5)
+	fmt.Println("-----------------------------")
+	fmt.Println("Log Integral Golang")
+	print2D(LogIntegralGolangArr)
+	fmt.Println(i6)
+
+}

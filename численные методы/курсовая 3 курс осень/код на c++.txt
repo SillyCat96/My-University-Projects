@@ -1,0 +1,218 @@
+#include <iostream>
+#include <vector>
+#include <locale.h>
+#include <cmath>
+using namespace std;
+// Печатает двумерный массив 
+void print2DArray(vector<vector<double>> arr, bool strong) {
+	for (auto row : arr) {
+		for (auto val : row) {
+			if (strong) {
+				printf("%-8.9f", val);
+			}
+			else {
+				printf("%-8.2f", val);
+			}
+		}
+		std::cout << std::endl;
+	}
+}
+// Печатает одномерный массив в консоль.
+void print1DArray(vector<double> arr) {
+	for (auto val : arr) {
+		std::cout << val << " ";
+	}
+}
+// Транспонирует двумерную матрицу.
+vector<vector<double>> transpose2DArray(vector<vector<double>> arr) {
+	int n = arr.size();
+	int m = arr[0].size();
+	vector<vector<double>> transposed(m, vector<double>(n));
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < m; j++) {
+			transposed[j][i] = arr[i][j];
+		}
+	}
+	return transposed;
+}
+// Умножение двух двумерных массивов.
+vector<vector<double>> multiply2DArrays(vector<vector<double>> a, vector<vector<double>> b) {
+	int n = a.size();
+	int m = a[0].size();
+	int p = b[0].size();
+	std::vector<vector<double>> result(n, vector<double>(p));
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < p; j++) {
+			for (int k = 0; k < m; k++) {
+				result[i][j] += a[i][k] * b[k][j];
+			}
+		}
+	}
+	return result;
+}
+// Умножение двумерного массива на одномерный .
+vector<double> matrixMultiplication(vector<vector<double>> matrix, vector<double> vectoR) {
+	int rows = matrix.size();
+	int cols = matrix[0].size();
+	vector<double> result(rows);
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			result[i] += matrix[i][j] * vectoR[j];
+		}
+	}
+	return result;
+}
+// Находит обратную матрицу методом Гаусса.
+std::vector<std::vector<double>> inverseMatrix(std::vector<std::vector<double>> matrix) {
+	int n = matrix.size();
+
+	// Создаем расширенную матрицу [matrix | I]
+	std::vector<std::vector<double>> augmentedMatrix;
+	augmentedMatrix.resize(n, std::vector<double>(2 * n));
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			augmentedMatrix[i][j] = matrix[i][j];
+		}
+		augmentedMatrix[i][i + n] = 1.0f;
+	}
+
+	// Приводим расширенную матрицу к диагональному виду методом Гаусса-Жордана
+	for (int i = 0; i < n; i++) {
+		// Делим i-ю строку на matrix[i][i] для приведения элемента matrix[i][i] к 1
+		double divisor = augmentedMatrix[i][i];
+		for (int j = 0; j < 2 * n; j++) {
+			augmentedMatrix[i][j] /= divisor;
+		}
+
+		// Обнуляем все элементы столбца, кроме элемента matrix[i][i]
+		for (int k = 0; k < n; k++) {
+			if (k == i) {
+				continue;
+			}
+			double factor = augmentedMatrix[k][i]; // Фактор, на который нужно умножить i-ю строку перед вычитанием
+			for (int j = 0; j < 2 * n; j++) {
+				augmentedMatrix[k][j] -= factor * augmentedMatrix[i][j];
+			}
+		}
+	}
+
+	// Извлекаем обратную матрицу из правой части расширенной матрицы
+	std::vector<std::vector<double>> inverse;
+	inverse.resize(n, std::vector<double>(n));
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			inverse[i][j] = augmentedMatrix[i][j + n];
+		}
+	}
+
+	return inverse;
+}
+
+// Находит параметры модели интегральным методом.
+vector<double> findCIM(vector<double> x, vector<double> y, vector<double> z, std::string xString, std::string yString, std::string zString) {
+	int n = x.size();
+	vector<vector<double>> X(n - 2, vector<double>(4));
+	vector<double> d;
+	for (int i = 0; i < n - 2; i++) {
+		X[i][0] = (x[i + 1] + x[i]) / 2;
+		X[i][1] = (x[i + 1] * x[i + 1] + x[i] * x[i]) / 2;
+		X[i][2] = (x[i + 1] * y[i + 1] + x[i] * y[i]) / 2;
+		X[i][3] = (x[i + 1] * z[i + 1] + x[i] * z[i]) / 2;
+		d.push_back(x[i + 1] - x[i]);
+	}
+
+	std::vector<std::vector<double>> XT = transpose2DArray(X);
+
+	std::vector<std::vector<double>> temp = multiply2DArrays(XT, X);
+
+	temp = inverseMatrix(temp);
+
+	d = matrixMultiplication(XT, d);
+
+
+	d = matrixMultiplication(temp, d);
+	vector<double> copyD;
+	copyD = d;
+
+	if (xString == "y" && yString == "x" && zString == "z") {
+		d[1] = copyD[2];
+		d[2] = copyD[1];
+	}
+	if (xString == "z" && yString == "x" && zString == "y") {
+		d[1] = copyD[2];
+		d[2] = copyD[3];
+		d[3] = copyD[1];
+	}
+
+	return d;
+}
+// Находит параметры модели логарифмическим интегральным методом.
+vector<double> findCLIM(vector<double> x, vector<double> y, vector<double> z, std::string xString, std::string yString, std::string zString) {
+	int n = x.size();
+	vector<vector<double>> X(n - 2, vector<double>(4));
+	vector<double> d;
+	for (int i = 0; i < n - 2; i++) {
+		X[i][0] = 1;
+		X[i][1] = (x[i + 1] + x[i]) / 2;
+		X[i][2] = (y[i + 1] + y[i]) / 2;
+		X[i][3] = (z[i + 1] + z[i]) / 2;
+		d.push_back(log(x[i + 1]) - log(x[i]));
+	}
+	std::vector<std::vector<double>> XT = transpose2DArray(X);
+
+	std::vector<std::vector<double>> temp = multiply2DArrays(XT, X);
+
+	temp = inverseMatrix(temp);
+
+	d = matrixMultiplication(XT, d);
+
+	d = matrixMultiplication(temp, d);
+	vector<double> copyD;
+	copyD = d;
+
+	if (xString == "y" && yString == "x" && zString == "z") {
+		d[1] = copyD[2];
+		d[2] = copyD[1];
+	}
+	if (xString == "z" && yString == "x" && zString == "y") {
+		d[1] = copyD[2];
+		d[2] = copyD[3];
+		d[3] = copyD[1];
+	}
+
+	return d;
+}
+int main() {
+	setlocale(LC_ALL, "Russian");
+	vector<double> x = { 0.0783, 0.5043, 0.6973, 0.8213, 0.8461, 0.8767, 0.9097, 0.9788 };
+	vector<double> y = { 0.2228, 0.0690, 0.0245, 0.0328, 0.0530, 0.0175, 0.0335, 0.0097 };
+	vector<double> z = { 0.6989, 0.4266, 0.2782, 0.1458, 0.1008, 0.1058, 0.0568, 0.0115 };
+	vector<double> ax = findCIM(x, y, z, "x", "y", "z");
+	vector<double> ay = findCIM(y, x, z, "y", "x", "z");
+	vector<double> az = findCIM(z, x, y, "z", "x", "y");
+	cout << "---------------------------\n";
+	cout << "Интегральный метод" << endl;
+	cout << "Параметры модели x" << endl;
+	print1DArray(ax);
+	cout << "\n";
+	cout << "Параметры модели y" << endl;
+	print1DArray(ay);
+	cout << "\n";
+	cout << "Параметры модели z" << endl;
+	print1DArray(az);
+	cout << "\n";
+	ax = findCLIM(x, y, z, "x", "y", "z");
+	ay = findCLIM(y, x, z, "y", "x", "z");
+	az = findCLIM(z, x, y, "z", "x", "y");
+	cout << "---------------------------\n";
+	cout << "Логарифмический интегральный метод" << endl;
+	cout << "Параметры модели x" << endl;
+	print1DArray(ax);
+	cout << "\n";
+	cout << "Параметры модели y" << endl;
+	print1DArray(ay);
+	cout << "\n";
+	cout << "Параметры модели z" << endl;
+	print1DArray(az);
+	return 0;
+}

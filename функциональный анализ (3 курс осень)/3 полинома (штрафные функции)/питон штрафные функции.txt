@@ -1,0 +1,150 @@
+import numpy as np
+from scipy.optimize import minimize
+from scipy.integrate import quad
+
+class Polynomial:
+    def __init__(self, coefficients):
+        self.coefficients = coefficients
+
+    def evaluate(self, x):
+        return np.sum(np.fromiter((coeff * x**i for i, coeff in enumerate(self.coefficients)), dtype=float))
+
+    def evaluate_with_coefficients(self, x, coefficients):
+        return np.sum(np.fromiter((coeff * x**i for i, coeff in enumerate(coefficients)), dtype=float))
+
+    def norm_l2(self, a, b, num_points=1000, coefficients=None):
+        if coefficients is None:
+            coefficients = self.coefficients
+
+        x_vals = np.linspace(a, b, num_points)
+        y_vals = [self.evaluate_with_coefficients(x, coefficients) for x in x_vals]
+        norm = np.sqrt(np.trapz(np.square(y_vals), x=x_vals))
+        return norm
+
+def weight_function(x):
+    return 1
+
+# Функция для вычисления скалярного произведения многочленов с учетом весовой функции
+def scalar_product(polynomial1, polynomial2, coefficients1, coefficients2):
+    integrand = lambda x: polynomial1.evaluate_with_coefficients(x, coefficients1) * \
+                          polynomial2.evaluate_with_coefficients(x, coefficients2) * weight_function(x)
+    result, _ = quad(integrand, -1, 1)
+    return result
+
+# Изначальные коэффициенты полиномов
+initial_coefficients_1 = np.array([-0.5, 0.0, 1.5, 0.0, 0.0, 0.0])
+initial_coefficients_2 = np.array([0.0, -1.5, 0.0, 2.5, 0.0, 0.0])
+initial_coefficients_3 = np.array([0.375, 0.0, -3.75, 0.0, 4.375, 0.0])
+
+# Определяем, какие коэффициенты нужно оптимизировать для каждого полинома
+optimize_mask_1 = np.array([0, 0, 0, 0, 0, 0])
+optimize_mask_2 = np.array([0, 0, 0, 0, 0, 0])
+optimize_mask_3 = np.array([0, 0, 0, 0, 0, 0])
+
+# Определение интервала интегрирования
+interval = [-1, 1]
+
+# Создаем объекты полиномов
+polynomial_1 = Polynomial(initial_coefficients_1)
+polynomial_2 = Polynomial(initial_coefficients_2)
+polynomial_3 = Polynomial(initial_coefficients_3)
+
+# Вывод коэффициентов изначальных полиномов
+print("Original Polynomial 1:", polynomial_1.coefficients)
+print("Original Polynomial 2:", polynomial_2.coefficients)
+print("Original Polynomial 3:", polynomial_3.coefficients)
+
+# Вывод изначальных норм
+original_norm_1 = polynomial_1.norm_l2(interval[0], interval[1])
+original_norm_2 = polynomial_2.norm_l2(interval[0], interval[1])
+original_norm_3 = polynomial_3.norm_l2(interval[0], interval[1])
+
+print("\n" + "="*50 + "\n")
+
+print("Original Norm of Polynomial 1:", original_norm_1)
+print("Original Norm of Polynomial 2:", original_norm_2)
+print("Original Norm of Polynomial 3:", original_norm_3)
+
+print("\n" + "="*50 + "\n")
+
+# Целевая функция (нормы полиномов)
+def objective_function(coefficients):
+    poly1_coeffs = initial_coefficients_1 + optimize_mask_1 * coefficients
+    poly2_coeffs = initial_coefficients_2 + optimize_mask_2 * coefficients
+    poly3_coeffs = initial_coefficients_3 + optimize_mask_3 * coefficients
+
+    norm_1 = polynomial_1.norm_l2(interval[0], interval[1], coefficients=poly1_coeffs)
+    norm_2 = polynomial_2.norm_l2(interval[0], interval[1], coefficients=poly2_coeffs)
+    norm_3 = polynomial_3.norm_l2(interval[0], interval[1], coefficients=poly3_coeffs)
+
+    return norm_1 + norm_2 + norm_3
+
+# Штрафная функция за нарушение ортогональности
+def penalty_function(coefficients):
+    poly1_coeffs = initial_coefficients_1 + optimize_mask_1 * coefficients
+    poly2_coeffs = initial_coefficients_2 + optimize_mask_2 * coefficients
+    poly3_coeffs = initial_coefficients_3 + optimize_mask_3 * coefficients
+
+    orthogonality_penalty_1_2 = scalar_product(polynomial_1, polynomial_2, poly1_coeffs, poly2_coeffs)
+    orthogonality_penalty_1_3 = scalar_product(polynomial_1, polynomial_3, poly1_coeffs, poly3_coeffs)
+    orthogonality_penalty_2_3 = scalar_product(polynomial_2, polynomial_3, poly2_coeffs, poly3_coeffs)
+
+    return orthogonality_penalty_1_2**2 + orthogonality_penalty_1_3**2 + orthogonality_penalty_2_3**2
+
+# Общая целевая функция с учетом штрафов
+def combined_objective(coefficients):
+    return objective_function(coefficients) + penalty_function(coefficients)
+
+# Начальные значения для оптимизации
+initial_guess = np.zeros_like(initial_coefficients_1[optimize_mask_1])
+
+# Минимизация с использованием метода штрафных функций
+result = minimize(combined_objective, initial_guess, method='BFGS')
+
+# Получение оптимальных коэффициентов
+optimal_coefficients_1 = initial_coefficients_1 + optimize_mask_1 * result.x
+optimal_coefficients_2 = initial_coefficients_2 + optimize_mask_2 * result.x
+optimal_coefficients_3 = initial_coefficients_3 + optimize_mask_3 * result.x
+
+# Вычисление норм с оптимальными коэффициентами
+optimized_norm_1 = polynomial_1.norm_l2(interval[0], interval[1], coefficients=optimal_coefficients_1)
+optimized_norm_2 = polynomial_2.norm_l2(interval[0], interval[1], coefficients=optimal_coefficients_2)
+optimized_norm_3 = polynomial_3.norm_l2(interval[0], interval[1], coefficients=optimal_coefficients_3)
+
+# Вывод результатов
+print("Optimal coefficients for Polynomial 1:", ['%.6f' % coef for coef in optimal_coefficients_1])
+print("Optimal coefficients for Polynomial 2:", ['%.6f' % coef for coef in optimal_coefficients_2])
+print("Optimal coefficients for Polynomial 3:", ['%.6f' % coef for coef in optimal_coefficients_3])
+
+# Разделитель
+print("\n" + "="*50 + "\n")
+
+print("Optimized Norm of Polynomial 1:", optimized_norm_1)
+print("Optimized Norm of Polynomial 2:", optimized_norm_2)
+print("Optimized Norm of Polynomial 3:", optimized_norm_3)
+
+# Разделитель
+print("\n" + "="*50 + "\n")
+
+# Проверка ортогональности
+orthogonality_check_1_2 = scalar_product(polynomial_1, polynomial_2, optimal_coefficients_1, optimal_coefficients_2)
+orthogonality_check_1_3 = scalar_product(polynomial_1, polynomial_3, optimal_coefficients_1, optimal_coefficients_3)
+orthogonality_check_2_3 = scalar_product(polynomial_2, polynomial_3, optimal_coefficients_2, optimal_coefficients_3)
+
+print("Orthogonality check 1-2 (should be close to zero):", orthogonality_check_1_2)
+print("Orthogonality check 1-3 (should be close to zero):", orthogonality_check_1_3)
+print("Orthogonality check 2-3 (should be close to zero):", orthogonality_check_2_3)
+
+# Разделитель
+print("\n" + "="*50 + "\n")
+
+# Проверка на возможность ортогонализации
+threshold = 0.0001
+if abs(orthogonality_check_1_2) > threshold or abs(orthogonality_check_1_3) > threshold or abs(orthogonality_check_2_3) > threshold:
+    print("\nOrthogonality check failed. Orthogonalization with the given initial coefficients is not possible.")
+else:
+    print("\nOrthogonality check passed. Polynomials are orthogonal.")
+
+    # Вывод суммы оптимизированных норм
+    total_optimized_norm = optimized_norm_1 + optimized_norm_2 + optimized_norm_3
+    print("Total Optimized Norm:", total_optimized_norm)
